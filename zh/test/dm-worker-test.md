@@ -1,11 +1,11 @@
 ---
-title: DM-worker 简介
+title: DM-worker 简介 FOR TEST
 category: reference
 ---
 
-# DM-worker 简介
+# DM-worker 简介 FOR TEST
 
-DM-worker 是 DM (Data Migration) 的一个组件，负责执行具体的数据同步任务。你也可以查看 [DM-worker 简介 FOR TEST](test/dm-worker-test.md)。
+DM-worker 是 DM (Data Migration) 的一个组件，负责执行具体的数据同步任务。
 
 其主要功能如下：
 
