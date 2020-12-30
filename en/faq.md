@@ -12,6 +12,8 @@ This document collects the frequently asked questions (FAQs) about TiDB Data Mig
 
 Currently, DM only supports decoding the standard version of MySQL or MariaDB binlog. It has not been tested for Alibaba Cloud RDS or other cloud databases. If you are confirmed that its binlog is in standard format, then it is supported.
 
+It is a known issue that for an upstream table with no primary key in Alibaba Cloud RDS, its binlog still contains a hidden primary key column, which is inconsistent with the original table structure.
+
 ## Does the regular expression of the block and allow list in the task configuration support `non-capturing (?!)`?
 
 Currently, DM does not support it and only supports the regular expressions of the Golang standard library. See regular expressions supported by Golang via [re2-syntax](https://github.com/google/re2/wiki/Syntax).
@@ -22,7 +24,7 @@ DM will attempt to split a single statement containing multiple DDL change opera
 
 ## How to handle incompatible DDL statements?
 
-When you encounter a DDL statement unsupported by TiDB, you need to manually handle it using dmctl (skipping the DDL statement or replacing the DDL statement with a specified DDL statement). For details, see [Handle failed SQL statements](handle-failed-sql-statements.md).
+When you encounter a DDL statement unsupported by TiDB, you need to manually handle it using dmctl (skipping the DDL statement or replacing the DDL statement with a specified DDL statement). For details, see [Handle failed DDL statements](handle-failed-ddl-statements.md).
 
 > **Note:**
 >
@@ -127,3 +129,49 @@ This error can be handled in any of the following ways:
 
 - [Import a DM 1.0 cluster into a new DM 2.0 cluster using TiUP](maintain-dm-using-tiup.md#import-and-upgrade-a-dm-10-cluster-deployed-using-dm-ansible).
 - [Manually import DM migration tasks of a DM 1.0 cluster to a DM 2.0 cluster](manually-upgrade-dm-1.0-to-2.0.md)。
+
+## Why does TiUP fail to deploy some versions of DM (for example, v2.0.0-hotfix)？
+
+You can use the `tiup list dm-master` command to view the DM versions that TiUP supports to deploy. TiUP does not manage DM versions which are not shown by this command.
+
+## How to handle the error `parse mydumper metadata error: EOF` that occurs when DM is replicating data？
+
+You need to check the error message and log files to further analyze this error. The cause might be that the dump unit does not produce the correct metadata file due to a lack of permissions.
+
+## Why does DM report no fatal error when replicating sharded schemas and tables, but downstream data is lost?
+
+Check the configuration items `block-allow-list` and `table-route`:
+
+- You need to configure the names of upstream databases and tables under `block-allow-list`. You can add "~" before `do-tables` to use regular expressions to match names.
+- `table-route` uses wildcard characters instead of regular expressions to match table names. For example, `table_parttern_[0-63]` only matches 7 tables, from `table_parttern_0` to `table_pattern_6`.
+
+## Why does the `replicate lag` monitor metric show no data when DM is not replicating from upstream?
+
+In DM 1.0, you need to enable `enable-heartbeat` to generate the monitor data. In DM 2.0, it is expected to have no data in the monitor metric `replicate lag` because this feature is not supported.
+
+## How to handle the error `fail to initial unit Sync of subtask` when DM is starting a task, with the `RawCause` in the error message showing `context deadline exceeded`?
+
+This is a known issue in DM 2.0.0 version and will be fixed in DM 2.0.1 version. It is likely to be triggered when a replication task has a lot of tables to process. If you use TiUP to deploy DM, you can upgrade DM to the nightly version to fix this issue. Or you can download the 2.0.0-hotfix version from [the release page of DM](https://github.com/pingcap/dm/releases) on GitHub and manually replace the executable files.
+
+## How to handle the error `duplicate entry` when DM is replicating data?
+
+You need to first check and confirm the following things:
+
+- `disable-detect` is not configured in the replication task.
+- The data is not inserted manually or by other replication programs.
+- No DML filter associated with this table is configured.
+
+To facilitate troubleshooting, you can first collect general log files of the downstream TiDB instance and then ask for technical support at [TiDB Community slack channel](https://tidbcommunity.slack.com/archives/CH7TTLL7P). The following example shows how to collect general log files:
+
+```bash
+# Enable general log collection
+curl -X POST -d "tidb_general_log=1" http://{TiDBIP}:10080/settings
+# Disable general log collection
+curl -X POST -d "tidb_general_log=0" http://{TiDBIP}:10080/settings
+```
+
+When the `duplicate entry` error occurs, you need to check the log files for the records that contain conflict data.
+
+## Why do some monitoring panels show `No data point`?
+
+It is normal for some panels to have no data. For example, when there is no error reported, no DDL lock, or the relay log feature is not enabled, the corresponding panels show `No data point`. For detailed description of each panel, see [DM Monitoring Metrics](monitor-a-dm-cluster.md).
